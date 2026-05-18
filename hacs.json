@@ -1,0 +1,6 @@
+{
+  "name": "DHL Sendungsverfolgung Karte",
+  "content_in_root": true,
+  "render_readme": true,
+  "filename": "dhl-tracking-card.js"
+}
