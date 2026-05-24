@@ -18,8 +18,6 @@ Die Integration **DHL Sendungsverfolgung** muss installiert und eingerichtet sei
 
 ## Installation via HACS
 
-[![In HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Noack1978&repository=ha-dhl-tracking-card&category=frontend)
-
 1. HACS öffnen → Frontend → Menü (⋮) → Benutzerdefinierte Repositories
 2. URL: `https://github.com/Noack1978/ha-dhl-tracking-card`
 3. Kategorie: **Lovelace**
