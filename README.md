@@ -1,26 +1,26 @@
 # DHL Sendungsverfolgung Karte
 
-[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/Noack1978/ha-dhl-tracking-card/blob/main/LICENSE)
 
-Lovelace-Karte fuer die [DHL Sendungsverfolgung Integration](https://github.com/Noack1978/ha-dhl-tracking).
+Lovelace-Karte für die [DHL Sendungsverfolgung Integration](https://github.com/Noack1978/ha-dhl-tracking).
 
 ## Features
 
 - DHL-Branding (Rot/Gelb)
-- Sendungen direkt in der Karte hinzufuegen und entfernen
-- Status mit Farbe (Gruen = Zugestellt, Orange = In Zustellung, Blau = Transit usw.)
-- Anzeige von: Sendungsnummer, Bezeichnung, Status, letzter Ort, letzte Aenderung, voraussichtliches Lieferdatum
+- Sendungen direkt in der Karte hinzufügen und entfernen
+- Status mit Farbe (Grün = Zugestellt, Orange = In Zustellung, Blau = Transit usw.)
+- Anzeige von: Sendungsnummer, Bezeichnung, Status, letzter Ort, letzte Änderung, voraussichtliches Lieferdatum
 - Sofort-Aktualisieren-Button
 
 ## Voraussetzungen
 
-Die Integration **DHL Sendungsverfolgung** muss installiert und eingerichtet sein:
-https://github.com/Noack1978/ha-dhl-tracking
+Die Integration **DHL Sendungsverfolgung** muss installiert und eingerichtet sein: <https://github.com/Noack1978/ha-dhl-tracking>
 
 ## Installation via HACS
 
-1. HACS oeffnen -> Frontend -> Menue -> Benutzerdefinierte Repositories
+[![In HACS öffnen](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Noack1978&repository=ha-dhl-tracking-card&category=frontend)
+
+1. HACS öffnen → Frontend → Menü (⋮) → Benutzerdefinierte Repositories
 2. URL: `https://github.com/Noack1978/ha-dhl-tracking-card`
 3. Kategorie: **Lovelace**
 4. Herunterladen
@@ -29,7 +29,7 @@ https://github.com/Noack1978/ha-dhl-tracking
 ## Manuell
 
 1. `dhl-tracking-card.js` nach `<config>/www/dhl-tracking-card.js` kopieren
-2. Einstellungen -> Dashboards -> Ressourcen -> Hinzufuegen:
+2. Einstellungen → Dashboards → Ressourcen → Hinzufügen:
    - URL: `/local/dhl-tracking-card.js`
    - Typ: JavaScript-Modul
 
@@ -43,14 +43,14 @@ Die Karte erkennt automatisch alle Sensoren der DHL Sendungsverfolgung Integrati
 
 ## Statusfarben
 
-| Farbe | Status |
-|---|---|
-| Gruen | Zugestellt |
-| Orange | In Zustellung |
-| Blau | In Transit |
-| Lila | Voranmeldung |
-| Rot | Fehler / Zustellung fehlgeschlagen |
-| Grau | Nicht gefunden / Unbekannt |
+| Farbe  | Status                             |
+| ------ | ---------------------------------- |
+| Grün   | Zugestellt                         |
+| Orange | In Zustellung                      |
+| Blau   | In Transit                         |
+| Lila   | Voranmeldung                       |
+| Rot    | Fehler / Zustellung fehlgeschlagen |
+| Grau   | Nicht gefunden / Unbekannt         |
 
 ## Lizenz
 
