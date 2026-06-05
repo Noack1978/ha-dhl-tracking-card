@@ -327,6 +327,23 @@ class DhlTrackingCard extends HTMLElement {
           font-size: 13px;
           padding: 16px 0;
         }
+        .modal-title { font-size: 14px; font-weight: 700; color: var(--primary-text-color,#fff); margin-bottom:6px; }
+        .modal-subtitle { font-size: 12px; color: var(--secondary-text-color,#9ca3af); }
+        .clean-item {
+          display: flex; align-items: flex-start; gap: 10px;
+          background: var(--secondary-background-color,#374151);
+          border-radius: 7px; padding: 9px 12px; margin-bottom: 7px;
+        }
+        .clean-item input[type=checkbox] { margin-top:3px; flex-shrink:0; width:16px; height:16px; cursor:pointer; }
+        .clean-item-info { flex:1; min-width:0; }
+        .clean-item-label { font-size:13px; color:var(--primary-text-color,#fff); }
+        .clean-item-num { font-family:monospace; font-size:11px; color:var(--secondary-text-color,#9ca3af); margin-top:2px; }
+        .clean-item-date { font-size:11px; color:var(--secondary-text-color,#9ca3af); margin-top:1px; }
+        .clean-item-date.overdue { color:#FF9800; font-weight:600; }
+        .btn-small { padding:6px 14px; font-size:13px; border-radius:7px; border:none; cursor:pointer; font-weight:700; }
+        .btn-confirm { background:var(--dhl-red,#D40511); color:#fff; }
+        .btn-confirm:hover { opacity:.88; }
+        .btn-cancel { background:var(--secondary-background-color,#374151); color:var(--primary-text-color,#fff); }
       </style>
 
       <ha-card>
@@ -372,28 +389,26 @@ class DhlTrackingCard extends HTMLElement {
           <div id="archive-list" style="display:none;margin-top:10px">
             <div class="empty">Archiv ist leer</div>
           </div>
+          <!-- Inline Bereinigen-Dialog -->
+          <div id="clean-dialog" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--divider-color,rgba(255,255,255,.08))">
+            <div class="modal-title" style="font-size:14px;margin-bottom:8px">&#128465; Sendungen loeschen</div>
+            <div class="modal-subtitle" id="clean-subtitle" style="margin-bottom:10px"></div>
+            <div id="clean-items"></div>
+            <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">
+              <button class="btn-small btn-cancel" id="clean-cancel">Abbrechen</button>
+              <button class="btn-small btn-confirm" id="clean-confirm">Ausgewaehlte loeschen</button>
+            </div>
+          </div>
         </div>
       </ha-card>
 
-      <!-- Modal -->
-      <div class="modal-overlay" id="modal">
-        <div class="modal">
-          <div class="modal-title">&#128465; Archiv bereinigen</div>
-          <div class="modal-subtitle" id="modal-subtitle"></div>
-          <div id="modal-items"></div>
-          <div class="modal-actions">
-            <button class="btn-small btn-cancel" id="modal-cancel">Abbrechen</button>
-            <button class="btn-small btn-confirm" id="modal-confirm">Loeschen</button>
-          </div>
-        </div>
-      </div>
     `;
 
     this.shadowRoot.getElementById('add-btn').addEventListener('click', () => this._add());
     this.shadowRoot.getElementById('refresh-btn').addEventListener('click', () => this._refresh());
-    this.shadowRoot.getElementById('clean-btn').addEventListener('click', () => this._openCleanModal());
-    this.shadowRoot.getElementById('modal-cancel').addEventListener('click', () => this._closeModal());
-    this.shadowRoot.getElementById('modal-confirm').addEventListener('click', () => this._confirmPurge());
+    this.shadowRoot.getElementById('clean-btn').addEventListener('click', () => this._openCleanDialog());
+    this.shadowRoot.getElementById('clean-cancel').addEventListener('click', () => this._closeCleanDialog());
+    this.shadowRoot.getElementById('clean-confirm').addEventListener('click', () => this._confirmPurge());
     this.shadowRoot.getElementById('archive-toggle').addEventListener('click', () => this._toggleArchive());
     ['num-input','lbl-input','plz-input'].forEach(id => {
       this.shadowRoot.getElementById(id).addEventListener('keydown', e => {
@@ -655,51 +670,65 @@ class DhlTrackingCard extends HTMLElement {
     if (btn)  btn.innerHTML = this._archiveOpen ? '&#9650;' : '&#9660;';
   }
 
-  _openCleanModal() {
-    const sensor = this._getArchiveSensor();
-    const modal  = this.shadowRoot.getElementById('modal');
-    const items  = this.shadowRoot.getElementById('modal-items');
-    const sub    = this.shadowRoot.getElementById('modal-subtitle');
-    const btn    = this.shadowRoot.getElementById('modal-confirm');
-    if (!sensor || !modal) return;
+  _openCleanDialog() {
+    const sensor  = this._getArchiveSensor();
+    const dialog  = this.shadowRoot.getElementById('clean-dialog');
+    const itemsEl = this.shadowRoot.getElementById('clean-items');
+    const sub     = this.shadowRoot.getElementById('clean-subtitle');
+    if (!sensor || !dialog) return;
 
     const archived = sensor.attributes.archived_items || {};
     const pending  = sensor.attributes.pending_deletion || [];
     const days     = sensor.attributes.archive_days || 30;
+    const allNums  = Object.keys(archived);
 
-    if (!pending.length) {
-      sub.textContent = 'Keine Sendungen aelter als ' + days + ' Tage.';
-      items.innerHTML = '<div class="modal-empty">Nichts zu bereinigen.</div>';
-      btn.style.display = 'none';
+    if (!allNums.length) {
+      sub.textContent = 'Archiv ist leer.';
+      itemsEl.innerHTML = '';
     } else {
-      sub.textContent = pending.length + ' Sendung(en) aelter als ' + days + ' Tage werden geloescht:';
-      items.innerHTML = pending.map(num => {
-        const item = archived[num] || {};
-        return `<div class="modal-item">
-          <div class="modal-item-label">${this._esc(item.label || num)}</div>
-          <div class="modal-item-num">${this._esc(num)}</div>
-        </div>`;
+      sub.textContent = 'Sendungen auswaehlen die geloescht werden sollen:';
+      itemsEl.innerHTML = allNums.map(num => {
+        const item      = archived[num] || {};
+        const isOverdue = pending.includes(num);
+        const date      = item.archived_at
+          ? new Date(item.archived_at).toLocaleDateString('de-DE') : '';
+        return `<label class="clean-item">
+          <input type="checkbox" value="${this._esc(num)}" ${isOverdue ? 'checked' : ''}>
+          <div class="clean-item-info">
+            <div class="clean-item-label">${this._esc(item.label || num)}</div>
+            <div class="clean-item-num">${this._esc(num)}</div>
+            <div class="clean-item-date ${isOverdue ? 'overdue' : ''}">
+              ${date ? 'Archiviert: ' + date : ''}
+              ${isOverdue ? ' &bull; Loeschung vorgeschlagen (>' + days + ' Tage)' : ''}
+            </div>
+          </div>
+        </label>`;
       }).join('');
-      btn.style.display = '';
     }
-    this._pendingPurge = pending;
-    modal.classList.add('open');
+
+    // Archiv-Liste aufklappen falls noch zu
+    if (!this._archiveOpen) this._toggleArchive();
+    dialog.style.display = 'block';
   }
 
-  _closeModal() {
-    const modal = this.shadowRoot.getElementById('modal');
-    if (modal) modal.classList.remove('open');
+  _closeCleanDialog() {
+    const dialog = this.shadowRoot.getElementById('clean-dialog');
+    if (dialog) dialog.style.display = 'none';
     this._pendingPurge = [];
   }
 
   async _confirmPurge() {
-    if (!this._pendingPurge || !this._pendingPurge.length) { this._closeModal(); return; }
+    const dialog  = this.shadowRoot.getElementById('clean-dialog');
+    const checked = dialog
+      ? [...dialog.querySelectorAll('input[type=checkbox]:checked')].map(cb => cb.value)
+      : [];
+    if (!checked.length) { this._closeCleanDialog(); return; }
     try {
       await this._hass.callService('dhl_tracking', 'purge_archive', {
-        tracking_numbers: this._pendingPurge,
+        tracking_numbers: checked,
       });
     } catch (err) { console.error('[dhl-card] purge_archive:', err); }
-    this._closeModal();
+    this._closeCleanDialog();
   }
 
   async _archiveShipment(number) {
