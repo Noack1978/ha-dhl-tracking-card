@@ -7,6 +7,8 @@ class DhlTrackingCard extends HTMLElement {
     this._config      = {};
     this._initialized = false;
     this._expanded    = new Set(); // erweiterte Sendungen
+    this._archiveOpen  = false;
+    this._pendingPurge = [];
     this.attachShadow({ mode: 'open' });
   }
 
@@ -23,6 +25,7 @@ class DhlTrackingCard extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     this._updateList();
+    this._updateArchive();
   }
 
   getCardSize() { return 5; }
@@ -37,6 +40,13 @@ class DhlTrackingCard extends HTMLElement {
         (a.attributes.label || a.attributes.tracking_number)
           .localeCompare(b.attributes.label || b.attributes.tracking_number)
       );
+  }
+
+  _getArchiveSensor() {
+    if (!this._hass) return null;
+    return Object.values(this._hass.states).find(
+      s => s.attributes.archived_items !== undefined
+    );
   }
 
   // ── DOM (einmalig) ────────────────────────────────────────────────────────
@@ -349,11 +359,42 @@ class DhlTrackingCard extends HTMLElement {
         <div class="refresh-row">
           <button class="btn-refresh" id="refresh-btn">&#8635; Aktualisieren</button>
         </div>
+
+        <!-- Archiv -->
+        <div class="section" id="archive-section">
+          <div class="section-header">
+            <div class="section-label-inline">&#128230; Archiv (<span id="archive-count">0</span>)</div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <button class="btn-clean" id="clean-btn">&#128465; Bereinigen</button>
+              <button class="btn-icon btn-expand" id="archive-toggle">&#9660;</button>
+            </div>
+          </div>
+          <div id="archive-list" style="display:none;margin-top:10px">
+            <div class="empty">Archiv ist leer</div>
+          </div>
+        </div>
       </ha-card>
+
+      <!-- Modal -->
+      <div class="modal-overlay" id="modal">
+        <div class="modal">
+          <div class="modal-title">&#128465; Archiv bereinigen</div>
+          <div class="modal-subtitle" id="modal-subtitle"></div>
+          <div id="modal-items"></div>
+          <div class="modal-actions">
+            <button class="btn-small btn-cancel" id="modal-cancel">Abbrechen</button>
+            <button class="btn-small btn-confirm" id="modal-confirm">Loeschen</button>
+          </div>
+        </div>
+      </div>
     `;
 
     this.shadowRoot.getElementById('add-btn').addEventListener('click', () => this._add());
     this.shadowRoot.getElementById('refresh-btn').addEventListener('click', () => this._refresh());
+    this.shadowRoot.getElementById('clean-btn').addEventListener('click', () => this._openCleanModal());
+    this.shadowRoot.getElementById('modal-cancel').addEventListener('click', () => this._closeModal());
+    this.shadowRoot.getElementById('modal-confirm').addEventListener('click', () => this._confirmPurge());
+    this.shadowRoot.getElementById('archive-toggle').addEventListener('click', () => this._toggleArchive());
     ['num-input','lbl-input','plz-input'].forEach(id => {
       this.shadowRoot.getElementById(id).addEventListener('keydown', e => {
         if (e.key === 'Enter') this._add();
@@ -379,6 +420,12 @@ class DhlTrackingCard extends HTMLElement {
       btn.addEventListener('click', e => {
         e.stopPropagation();
         this._remove(e.currentTarget.dataset.del);
+      })
+    );
+    list.querySelectorAll('[data-arc]').forEach(btn =>
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        this._archiveShipment(e.currentTarget.dataset.arc);
       })
     );
     list.querySelectorAll('[data-exp]').forEach(btn =>
@@ -419,6 +466,7 @@ class DhlTrackingCard extends HTMLElement {
               title="${open ? 'Zuklappen' : 'Details'}">
               ${open ? '&#9650;' : '&#9660;'}
             </button>
+            ${a.status_code === 'delivered' ? `<button class="btn-icon btn-archive" data-arc="${this._esc(num)}" title="Archivieren">&#128230;</button>` : ''}
             <button class="btn-icon btn-delete" data-del="${this._esc(num)}"
               title="Sendung entfernen">&#215;</button>
           </div>
@@ -564,6 +612,104 @@ class DhlTrackingCard extends HTMLElement {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
+  // ── Archiv ────────────────────────────────────────────────────────────────
+
+  _updateArchive() {
+    const sensor   = this._getArchiveSensor();
+    const countEl  = this.shadowRoot.getElementById('archive-count');
+    const list     = this.shadowRoot.getElementById('archive-list');
+    if (!countEl || !list) return;
+    if (!sensor) { countEl.textContent = '0'; return; }
+
+    const archived = sensor.attributes.archived_items || {};
+    const pending  = sensor.attributes.pending_deletion || [];
+    const days     = sensor.attributes.archive_days || 30;
+    const count    = Object.keys(archived).length;
+    countEl.textContent = count;
+
+    if (!count) {
+      list.innerHTML = '<div class="empty">Archiv ist leer</div>';
+      return;
+    }
+    list.innerHTML = Object.entries(archived).map(([num, item]) => {
+      const isPending  = pending.includes(num);
+      const archivedAt = item.archived_at
+        ? new Date(item.archived_at).toLocaleDateString('de-DE') : '';
+      return `
+        <div class="archive-item">
+          <div class="archive-label">${this._esc(item.label || num)}</div>
+          <div class="archive-number">${this._esc(num)}</div>
+          <div class="archive-meta ${isPending ? 'pending' : ''}">
+            ${archivedAt ? 'Archiviert: ' + archivedAt : ''}
+            ${isPending ? ' &bull; &#9888; Loeschung ausstehend (>' + days + ' Tage)' : ''}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  _toggleArchive() {
+    this._archiveOpen = !this._archiveOpen;
+    const list = this.shadowRoot.getElementById('archive-list');
+    const btn  = this.shadowRoot.getElementById('archive-toggle');
+    if (list) list.style.display = this._archiveOpen ? 'block' : 'none';
+    if (btn)  btn.innerHTML = this._archiveOpen ? '&#9650;' : '&#9660;';
+  }
+
+  _openCleanModal() {
+    const sensor = this._getArchiveSensor();
+    const modal  = this.shadowRoot.getElementById('modal');
+    const items  = this.shadowRoot.getElementById('modal-items');
+    const sub    = this.shadowRoot.getElementById('modal-subtitle');
+    const btn    = this.shadowRoot.getElementById('modal-confirm');
+    if (!sensor || !modal) return;
+
+    const archived = sensor.attributes.archived_items || {};
+    const pending  = sensor.attributes.pending_deletion || [];
+    const days     = sensor.attributes.archive_days || 30;
+
+    if (!pending.length) {
+      sub.textContent = 'Keine Sendungen aelter als ' + days + ' Tage.';
+      items.innerHTML = '<div class="modal-empty">Nichts zu bereinigen.</div>';
+      btn.style.display = 'none';
+    } else {
+      sub.textContent = pending.length + ' Sendung(en) aelter als ' + days + ' Tage werden geloescht:';
+      items.innerHTML = pending.map(num => {
+        const item = archived[num] || {};
+        return `<div class="modal-item">
+          <div class="modal-item-label">${this._esc(item.label || num)}</div>
+          <div class="modal-item-num">${this._esc(num)}</div>
+        </div>`;
+      }).join('');
+      btn.style.display = '';
+    }
+    this._pendingPurge = pending;
+    modal.classList.add('open');
+  }
+
+  _closeModal() {
+    const modal = this.shadowRoot.getElementById('modal');
+    if (modal) modal.classList.remove('open');
+    this._pendingPurge = [];
+  }
+
+  async _confirmPurge() {
+    if (!this._pendingPurge || !this._pendingPurge.length) { this._closeModal(); return; }
+    try {
+      await this._hass.callService('dhl_tracking', 'purge_archive', {
+        tracking_numbers: this._pendingPurge,
+      });
+    } catch (err) { console.error('[dhl-card] purge_archive:', err); }
+    this._closeModal();
+  }
+
+  async _archiveShipment(number) {
+    try {
+      await this._hass.callService('dhl_tracking', 'archive_tracking', {
+        tracking_number: number,
+      });
+    } catch (err) { console.error('[dhl-card] archive_tracking:', err); }
+  }
+
 }
 
 customElements.define('dhl-tracking-card', DhlTrackingCard);
@@ -572,6 +718,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type:        'dhl-tracking-card',
   name:        'DHL Sendungsverfolgung',
-  description: 'Karte zur Verwaltung und Anzeige von DHL-Sendungen mit Ereignis-Timeline.',
+  version:     '1.2.0',
+  description: 'Karte zur Verwaltung und Anzeige von DHL-Sendungen mit Ereignis-Timeline und Archiv.',
   preview:     false,
 });
