@@ -7,8 +7,9 @@ class DhlTrackingCard extends HTMLElement {
     this._config      = {};
     this._initialized = false;
     this._expanded    = new Set(); // erweiterte Sendungen
-    this._archiveOpen  = false;
-    this._pendingPurge = [];
+    this._archiveOpen   = false;
+    this._pendingPurge  = [];
+    this._renamingNumber = null;
     this.attachShadow({ mode: 'open' });
   }
 
@@ -204,12 +205,11 @@ class DhlTrackingCard extends HTMLElement {
         .btn-rename {
           color: var(--secondary-text-color, #9ca3af);
           font-size: 13px;
-          opacity: 0;
-          transition: opacity .2s;
+          opacity: .45;
           padding: 2px 5px;
           flex-shrink: 0;
         }
-        .sensor-header:hover .btn-rename { opacity: 1; }
+        .btn-rename:hover { opacity: 1; }
         .rename-form {
           display: flex;
           gap: 6px;
@@ -505,7 +505,40 @@ class DhlTrackingCard extends HTMLElement {
     list.querySelectorAll('[data-ren]').forEach(btn =>
       btn.addEventListener('click', e => {
         e.stopPropagation();
-        this._openRenameForm(e.currentTarget.dataset.ren, e.currentTarget.dataset.lbl);
+        this._renamingNumber = e.currentTarget.dataset.ren;
+        this._updateList();
+        // Input fokussieren nach Render
+        requestAnimationFrame(() => {
+          const inp = this.shadowRoot.getElementById('rename-input-' + e.currentTarget.dataset.ren);
+          if (inp) { inp.focus(); inp.select(); }
+        });
+      })
+    );
+    list.querySelectorAll('.btn-rename-save').forEach(btn =>
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const num = e.currentTarget.dataset.num;
+        const inp = this.shadowRoot.getElementById('rename-input-' + num);
+        if (inp) this._saveRename(num, inp.value.trim());
+      })
+    );
+    list.querySelectorAll('.btn-rename-cancel').forEach(btn =>
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        this._renamingNumber = null;
+        this._updateList();
+      })
+    );
+    list.querySelectorAll('.rename-input').forEach(inp =>
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          const num = this._renamingNumber;
+          if (num) this._saveRename(num, e.target.value.trim());
+        }
+        if (e.key === 'Escape') {
+          this._renamingNumber = null;
+          this._updateList();
+        }
       })
     );
     list.querySelectorAll('[data-exp]').forEach(btn =>
@@ -698,50 +731,18 @@ class DhlTrackingCard extends HTMLElement {
   }
   // ── Umbenennen ───────────────────────────────────────────────────────────────
 
-  _openRenameForm(number, currentLabel) {
-    // Vorhandenes Formular schliessen
-    this.shadowRoot.querySelectorAll('.rename-form').forEach(f => f.remove());
-
-    const item = this.shadowRoot.querySelector(`[data-exp="${CSS.escape(number)}"]`)
-      ?.closest('.sensor-item');
-    if (!item) return;
-
-    const header = item.querySelector('.sensor-header');
-    const form = document.createElement('div');
-    form.className = 'rename-form';
-    form.innerHTML = `
-      <input class="rename-input" type="text" value="${this._esc(currentLabel)}"
-        placeholder="Bezeichnung eingeben" autocomplete="off">
-      <button class="btn-rename-save" data-num="${this._esc(number)}">&#10003;</button>
-      <button class="btn-rename-cancel">&#215;</button>
-    `;
-    header.after(form);
-
-    const input = form.querySelector('.rename-input');
-    input.focus();
-    input.select();
-
-    form.querySelector('.btn-rename-save').addEventListener('click', () =>
-      this._saveRename(number, input.value.trim())
-    );
-    form.querySelector('.btn-rename-cancel').addEventListener('click', () =>
-      form.remove()
-    );
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Enter') this._saveRename(number, input.value.trim());
-      if (e.key === 'Escape') form.remove();
-    });
-  }
-
   async _saveRename(number, newLabel) {
     if (!newLabel) return;
+    this._renamingNumber = null;
     try {
       await this._hass.callService('dhl_tracking', 'rename_tracking', {
         tracking_number: number,
         label: newLabel,
       });
-    } catch (err) { console.error('[dhl-card] rename_tracking:', err); }
-    this.shadowRoot.querySelectorAll('.rename-form').forEach(f => f.remove());
+    } catch (err) {
+      console.error('[dhl-card] rename_tracking:', err);
+      this._updateList();
+    }
   }
 
   // ── Archiv ────────────────────────────────────────────────────────────────
