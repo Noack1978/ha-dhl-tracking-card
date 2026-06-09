@@ -190,6 +190,12 @@ class DhlTrackingCard extends HTMLElement {
           overflow: hidden;
           text-overflow: ellipsis;
         }
+        .sensor-sender {
+          font-size: 11px;
+          color: var(--secondary-text-color, #9ca3af);
+          margin-top: 1px;
+          font-style: italic;
+        }
         .sensor-number {
           font-family: 'Courier New', monospace;
           font-size: 11px;
@@ -472,6 +478,7 @@ class DhlTrackingCard extends HTMLElement {
           <div class="status-dot" style="background:${dot}"></div>
           <div class="sensor-main">
             <div class="sensor-label">${this._esc(a.label || num)}</div>
+            ${a.sender && a.sender !== a.label ? `<div class="sensor-sender">${this._esc(a.sender)}</div>` : ''}
             <div class="sensor-number">${this._esc(num)}</div>
             <div class="sensor-state" style="color:${dot}">${this._esc(sensor.state)}</div>
             ${pills.length ? `<div class="sensor-quick">${pills.map(p => `<span class="pill">${p}</span>`).join('')}</div>` : ''}

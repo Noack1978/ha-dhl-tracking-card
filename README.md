@@ -11,13 +11,10 @@ Lovelace-Karte für die [DHL Sendungsverfolgung Integration](https://github.com/
 - Status mit Farbe (Grün = Zugestellt, Orange = In Zustellung, Blau = Transit usw.)
 - Anzeige von: Sendungsnummer, Bezeichnung, Status, letzter Ort, letzte Änderung, voraussichtliches Lieferdatum
 - Sofort-Aktualisieren-Button
-- 📦 Archiv-Button bei zugestellten Sendungen
-- 🗂️ Aufklappbarer Archiv-Bereich unterhalb der aktiven Sendungen
-- 🗑️ Bereinigen-Button mit Bestätigungs-Dialog – zeigt was gelöscht wird, fällige Sendungen werden markiert
 
 ## Voraussetzungen
 
-Die Integration **DHL Sendungsverfolgung** v1.3.0 oder neuer muss installiert und eingerichtet sein: <https://github.com/Noack1978/ha-dhl-tracking>
+Die Integration **DHL Sendungsverfolgung** muss installiert und eingerichtet sein: <https://github.com/Noack1978/ha-dhl-tracking>
 
 ## Installation via HACS
 
@@ -55,21 +52,6 @@ Die Karte erkennt automatisch alle Sensoren der DHL Sendungsverfolgung Integrati
 | Rot    | Fehler / Zustellung fehlgeschlagen |
 | Grau   | Nicht gefunden / Unbekannt         |
 
-## Changelog
-
-### v1.2.0
-- 📦 Archiv-Button bei zugestellten Sendungen
-- 🗂️ Aufklappbarer Archiv-Bereich unterhalb der aktiven Sendungen
-- 🗑️ Bereinigen-Button mit Modal-Dialog: zeigt was gelöscht wird, Bestätigung erforderlich
-- Fällige Sendungen werden mit Warnhinweis markiert
-
-### v1.1.0
-- Icon und Logo hinzugefügt
-
-### v1.0.0
-- Erstveröffentlichung
-
 ## Lizenz
 
 MIT
- 
