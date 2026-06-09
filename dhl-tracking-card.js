@@ -196,6 +196,59 @@ class DhlTrackingCard extends HTMLElement {
           margin-top: 1px;
           font-style: italic;
         }
+        .sensor-label-row {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .btn-rename {
+          color: var(--secondary-text-color, #9ca3af);
+          font-size: 13px;
+          opacity: 0;
+          transition: opacity .2s;
+          padding: 2px 5px;
+          flex-shrink: 0;
+        }
+        .sensor-header:hover .btn-rename { opacity: 1; }
+        .rename-form {
+          display: flex;
+          gap: 6px;
+          margin-top: 6px;
+          align-items: center;
+        }
+        .rename-input {
+          flex: 1;
+          background: var(--secondary-background-color, #374151);
+          border: 1.5px solid var(--dhl-red, #D40511);
+          border-radius: 7px;
+          color: var(--primary-text-color, #fff);
+          padding: 7px 10px;
+          font-size: 13px;
+          font-family: inherit;
+          outline: none;
+          min-width: 0;
+        }
+        .btn-rename-save {
+          background: var(--dhl-red, #D40511);
+          color: #fff;
+          padding: 7px 12px;
+          font-size: 12px;
+          border-radius: 7px;
+          border: none;
+          cursor: pointer;
+          font-weight: 700;
+          flex-shrink: 0;
+        }
+        .btn-rename-cancel {
+          background: transparent;
+          color: var(--secondary-text-color, #9ca3af);
+          padding: 7px 8px;
+          font-size: 16px;
+          border-radius: 7px;
+          border: none;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
         .sensor-number {
           font-family: 'Courier New', monospace;
           font-size: 11px;
@@ -449,6 +502,12 @@ class DhlTrackingCard extends HTMLElement {
         this._archiveShipment(e.currentTarget.dataset.arc);
       })
     );
+    list.querySelectorAll('[data-ren]').forEach(btn =>
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        this._openRenameForm(e.currentTarget.dataset.ren, e.currentTarget.dataset.lbl);
+      })
+    );
     list.querySelectorAll('[data-exp]').forEach(btn =>
       btn.addEventListener('click', e => {
         e.stopPropagation();
@@ -477,8 +536,11 @@ class DhlTrackingCard extends HTMLElement {
         <div class="sensor-header" data-num="${this._esc(num)}">
           <div class="status-dot" style="background:${dot}"></div>
           <div class="sensor-main">
-            <div class="sensor-label">${this._esc(a.label || num)}</div>
-            ${a.sender && a.sender !== a.label ? `<div class="sensor-sender">${this._esc(a.sender)}</div>` : ''}
+            <div class="sensor-label-row">
+              <div class="sensor-label">${this._esc(a.label || num)}</div>
+              <button class="btn-icon btn-rename" data-ren="${this._esc(num)}"
+                data-lbl="${this._esc(a.label || '')}" title="Umbenennen">&#9998;</button>
+            </div>
             <div class="sensor-number">${this._esc(num)}</div>
             <div class="sensor-state" style="color:${dot}">${this._esc(sensor.state)}</div>
             ${pills.length ? `<div class="sensor-quick">${pills.map(p => `<span class="pill">${p}</span>`).join('')}</div>` : ''}
@@ -634,6 +696,54 @@ class DhlTrackingCard extends HTMLElement {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
+  // ── Umbenennen ───────────────────────────────────────────────────────────────
+
+  _openRenameForm(number, currentLabel) {
+    // Vorhandenes Formular schliessen
+    this.shadowRoot.querySelectorAll('.rename-form').forEach(f => f.remove());
+
+    const item = this.shadowRoot.querySelector(`[data-exp="${CSS.escape(number)}"]`)
+      ?.closest('.sensor-item');
+    if (!item) return;
+
+    const header = item.querySelector('.sensor-header');
+    const form = document.createElement('div');
+    form.className = 'rename-form';
+    form.innerHTML = `
+      <input class="rename-input" type="text" value="${this._esc(currentLabel)}"
+        placeholder="Bezeichnung eingeben" autocomplete="off">
+      <button class="btn-rename-save" data-num="${this._esc(number)}">&#10003;</button>
+      <button class="btn-rename-cancel">&#215;</button>
+    `;
+    header.after(form);
+
+    const input = form.querySelector('.rename-input');
+    input.focus();
+    input.select();
+
+    form.querySelector('.btn-rename-save').addEventListener('click', () =>
+      this._saveRename(number, input.value.trim())
+    );
+    form.querySelector('.btn-rename-cancel').addEventListener('click', () =>
+      form.remove()
+    );
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') this._saveRename(number, input.value.trim());
+      if (e.key === 'Escape') form.remove();
+    });
+  }
+
+  async _saveRename(number, newLabel) {
+    if (!newLabel) return;
+    try {
+      await this._hass.callService('dhl_tracking', 'rename_tracking', {
+        tracking_number: number,
+        label: newLabel,
+      });
+    } catch (err) { console.error('[dhl-card] rename_tracking:', err); }
+    this.shadowRoot.querySelectorAll('.rename-form').forEach(f => f.remove());
+  }
+
   // ── Archiv ────────────────────────────────────────────────────────────────
 
   _updateArchive() {
