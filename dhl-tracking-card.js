@@ -469,23 +469,9 @@ class DhlTrackingCard extends HTMLElement {
         if (e.key === 'Enter') this._add();
       });
     });
-  }
 
-  // ── Liste rendern ─────────────────────────────────────────────────────────
-
-  _updateList() {
+    // Delegierter Handler fuer sensor-list – EINMALIG registrieren
     const list = this.shadowRoot.getElementById('sensor-list');
-    if (!list) return;
-
-    const sensors = this._getSensors();
-    if (!sensors.length) {
-      list.innerHTML = '<div class="empty">Noch keine Sendungen.<br>Sendungsnummer oben eingeben.</div>';
-      return;
-    }
-
-    list.innerHTML = sensors.map(s => this._renderItem(s)).join('');
-
-    // Einzelner delegierter Click-Handler – funktioniert zuverlaessig auf allen Geraeten
     list.addEventListener('click', (e) => {
       const del = e.target.closest('[data-del]');
       const arc = e.target.closest('[data-arc]');
@@ -525,7 +511,6 @@ class DhlTrackingCard extends HTMLElement {
       if (hdr && !e.target.closest('button')) { this._toggleExpand(hdr.dataset.num); }
     });
 
-    // Keydown auf Rename-Input
     list.addEventListener('keydown', (e) => {
       if (!e.target.classList.contains('rename-input')) return;
       if (e.key === 'Enter') {
@@ -537,6 +522,23 @@ class DhlTrackingCard extends HTMLElement {
         this._updateList();
       }
     });
+  }
+
+  // ── Liste rendern ─────────────────────────────────────────────────────────
+
+  _updateList() {
+    const list = this.shadowRoot.getElementById('sensor-list');
+    if (!list) return;
+
+    const sensors = this._getSensors();
+    if (!sensors.length) {
+      list.innerHTML = '<div class="empty">Noch keine Sendungen.<br>Sendungsnummer oben eingeben.</div>';
+      return;
+    }
+
+    list.innerHTML = sensors.map(s => this._renderItem(s)).join('');
+
+
   }
 
   _renderItem(sensor) {
@@ -573,6 +575,13 @@ class DhlTrackingCard extends HTMLElement {
               title="Sendung entfernen">&#215;</button>
           </div>
         </div>
+        ${this._renamingNumber === num ? `
+        <div class="rename-form" style="padding:8px 13px 10px">
+          <input class="rename-input" type="text" id="rename-input-${this._esc(num)}"
+            value="${this._esc(a.label || '')}" placeholder="Bezeichnung eingeben" autocomplete="off">
+          <button class="btn-rename-save" data-num="${this._esc(num)}">&#10003;</button>
+          <button class="btn-rename-cancel" data-num="${this._esc(num)}">&#215;</button>
+        </div>` : ''}
         <div class="sensor-detail ${open ? 'open' : ''}">
           ${this._renderDetail(sensor)}
         </div>
@@ -850,7 +859,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type:        'dhl-tracking-card',
   name:        'DHL Sendungsverfolgung',
-  version:     '1.2.0',
+  version:     '1.2.1',
   description: 'Karte zur Verwaltung und Anzeige von DHL-Sendungen mit Ereignis-Timeline und Archiv.',
   preview:     false,
 });
