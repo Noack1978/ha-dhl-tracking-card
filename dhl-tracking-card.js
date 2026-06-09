@@ -197,11 +197,6 @@ class DhlTrackingCard extends HTMLElement {
           margin-top: 1px;
           font-style: italic;
         }
-        .sensor-label-row {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
         .btn-rename {
           color: var(--secondary-text-color, #9ca3af);
           font-size: 13px;
@@ -548,7 +543,11 @@ class DhlTrackingCard extends HTMLElement {
       })
     );
     list.querySelectorAll('.sensor-header').forEach(el =>
-      el.addEventListener('click', () => this._toggleExpand(el.dataset.num))
+      el.addEventListener('click', (e) => {
+        // Klicks auf Action-Buttons nicht als Expand werten
+        if (e.target.closest('button')) return;
+        this._toggleExpand(el.dataset.num);
+      })
     );
   }
 
@@ -569,11 +568,7 @@ class DhlTrackingCard extends HTMLElement {
         <div class="sensor-header" data-num="${this._esc(num)}">
           <div class="status-dot" style="background:${dot}"></div>
           <div class="sensor-main">
-            <div class="sensor-label-row">
-              <div class="sensor-label">${this._esc(a.label || num)}</div>
-              <button class="btn-icon btn-rename" data-ren="${this._esc(num)}"
-                data-lbl="${this._esc(a.label || '')}" title="Umbenennen">&#9998;</button>
-            </div>
+            <div class="sensor-label">${this._esc(a.label || num)}</div>
             <div class="sensor-number">${this._esc(num)}</div>
             <div class="sensor-state" style="color:${dot}">${this._esc(sensor.state)}</div>
             ${pills.length ? `<div class="sensor-quick">${pills.map(p => `<span class="pill">${p}</span>`).join('')}</div>` : ''}
@@ -583,6 +578,8 @@ class DhlTrackingCard extends HTMLElement {
               title="${open ? 'Zuklappen' : 'Details'}">
               ${open ? '&#9650;' : '&#9660;'}
             </button>
+            <button class="btn-icon btn-rename" data-ren="${this._esc(num)}"
+              title="Umbenennen">&#9998;</button>
             ${a.status_code === 'delivered' ? `<button class="btn-icon btn-archive" data-arc="${this._esc(num)}" title="Archivieren">&#128230;</button>` : ''}
             <button class="btn-icon btn-delete" data-del="${this._esc(num)}"
               title="Sendung entfernen">&#215;</button>
