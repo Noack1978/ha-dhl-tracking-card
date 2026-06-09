@@ -485,70 +485,58 @@ class DhlTrackingCard extends HTMLElement {
 
     list.innerHTML = sensors.map(s => this._renderItem(s)).join('');
 
-    list.querySelectorAll('[data-del]').forEach(btn =>
-      btn.addEventListener('click', e => {
+    // Einzelner delegierter Click-Handler – funktioniert zuverlaessig auf allen Geraeten
+    list.addEventListener('click', (e) => {
+      const del = e.target.closest('[data-del]');
+      const arc = e.target.closest('[data-arc]');
+      const sav = e.target.closest('.btn-rename-save');
+      const can = e.target.closest('.btn-rename-cancel');
+      const ren = e.target.closest('[data-ren]');
+      const exp = e.target.closest('[data-exp]');
+      const hdr = e.target.closest('.sensor-header');
+
+      if (del) { e.stopPropagation(); this._remove(del.dataset.del); return; }
+      if (arc) { e.stopPropagation(); this._archiveShipment(arc.dataset.arc); return; }
+      if (sav) {
         e.stopPropagation();
-        this._remove(e.currentTarget.dataset.del);
-      })
-    );
-    list.querySelectorAll('[data-arc]').forEach(btn =>
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        this._archiveShipment(e.currentTarget.dataset.arc);
-      })
-    );
-    list.querySelectorAll('[data-ren]').forEach(btn =>
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        this._renamingNumber = e.currentTarget.dataset.ren;
-        this._updateList();
-        // Input fokussieren nach Render
-        requestAnimationFrame(() => {
-          const inp = this.shadowRoot.getElementById('rename-input-' + e.currentTarget.dataset.ren);
-          if (inp) { inp.focus(); inp.select(); }
-        });
-      })
-    );
-    list.querySelectorAll('.btn-rename-save').forEach(btn =>
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        const num = e.currentTarget.dataset.num;
+        const num = sav.dataset.num;
         const inp = this.shadowRoot.getElementById('rename-input-' + num);
         if (inp) this._saveRename(num, inp.value.trim());
-      })
-    );
-    list.querySelectorAll('.btn-rename-cancel').forEach(btn =>
-      btn.addEventListener('click', e => {
+        return;
+      }
+      if (can) {
         e.stopPropagation();
         this._renamingNumber = null;
         this._updateList();
-      })
-    );
-    list.querySelectorAll('.rename-input').forEach(inp =>
-      inp.addEventListener('keydown', e => {
-        if (e.key === 'Enter') {
-          const num = this._renamingNumber;
-          if (num) this._saveRename(num, e.target.value.trim());
-        }
-        if (e.key === 'Escape') {
-          this._renamingNumber = null;
-          this._updateList();
-        }
-      })
-    );
-    list.querySelectorAll('[data-exp]').forEach(btn =>
-      btn.addEventListener('click', e => {
+        return;
+      }
+      if (ren) {
         e.stopPropagation();
-        this._toggleExpand(e.currentTarget.dataset.exp);
-      })
-    );
-    list.querySelectorAll('.sensor-header').forEach(el =>
-      el.addEventListener('click', (e) => {
-        // Klicks auf Action-Buttons nicht als Expand werten
-        if (e.target.closest('button')) return;
-        this._toggleExpand(el.dataset.num);
-      })
-    );
+        const num = ren.dataset.ren;
+        this._renamingNumber = num;
+        this._updateList();
+        requestAnimationFrame(() => {
+          const inp = this.shadowRoot.getElementById('rename-input-' + num);
+          if (inp) { inp.focus(); inp.select(); }
+        });
+        return;
+      }
+      if (exp) { e.stopPropagation(); this._toggleExpand(exp.dataset.exp); return; }
+      if (hdr && !e.target.closest('button')) { this._toggleExpand(hdr.dataset.num); }
+    });
+
+    // Keydown auf Rename-Input
+    list.addEventListener('keydown', (e) => {
+      if (!e.target.classList.contains('rename-input')) return;
+      if (e.key === 'Enter') {
+        const num = this._renamingNumber;
+        if (num) this._saveRename(num, e.target.value.trim());
+      }
+      if (e.key === 'Escape') {
+        this._renamingNumber = null;
+        this._updateList();
+      }
+    });
   }
 
   _renderItem(sensor) {
