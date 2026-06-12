@@ -25,7 +25,11 @@ class DhlTrackingCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    this._updateList();
+    // Waehrend ein Rename aktiv ist, Liste nicht neu bauen
+    // (wuerde den Input-Fokus und die Tastatur schliessen)
+    if (!this._renamingNumber) {
+      this._updateList();
+    }
     this._updateArchive();
   }
 
@@ -859,7 +863,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type:        'dhl-tracking-card',
   name:        'DHL Sendungsverfolgung',
-  version:     '1.2.1',
+  version:     '1.2.2',
   description: 'Karte zur Verwaltung und Anzeige von DHL-Sendungen mit Ereignis-Timeline und Archiv.',
   preview:     false,
 });
